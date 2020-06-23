@@ -2,6 +2,14 @@ const AWS = require('aws-sdk');
 const bcrypt = require('bcrypt');
 var atob = require('atob');
 
+const Razorpay = require('razorpay');
+const instance = new Razorpay({
+    // key_id: process.env.RAZORPAY_KEY,
+    key_id: "rzp_test_VOOCC5sS9NmTSF",
+    key_secret: "V3iI59d2EyyBpKAxThdGHLTT"
+        // key_secret: process.env.RAZORPAY_SECRET
+})
+
 const dotenv = require('dotenv');
 dotenv.config();
 
@@ -483,4 +491,28 @@ app.post('/upgrade', [authenticate], async(req, res) => {
             message: `No user found with Email Id- ${req.body.email}`
         })
     }
+})
+
+app.post('/createOrder', [authenticate], async(req, res) => {
+    let options = {
+        amount: req.body.amount, // amount in the smallest currency unit
+        currency: "INR",
+        receipt: "order_rcptid_11",
+        payment_capture: '1'
+    };
+    instance.orders.create(options, async function(err, order) {
+        console.log(order);
+        let client = await mongodb.connect(dbURL).catch((err) => { throw err; })
+        let db = client.db("drive");
+        let data = await db.collection("users").updateOne({ email: req.body.email }, { $set: { order: order } }).catch((err) => { throw err; })
+        client.close();
+        if (data) {
+            res.status(200).json(order);
+        } else {
+            res.status(400).json({
+                message: `No user found with Email Id- ${req.body.email}`
+            })
+        }
+        res.json(order);
+    });
 })
